@@ -8,7 +8,7 @@ from .constants import COMPLEX_NULL_VALUE
 
 class CheckboxValue(ComplexNullValue):
     """A checkbox column value."""
-    
+
     native_type = bool
     native_default = False
     allow_casts = (int, str)
@@ -27,7 +27,7 @@ class CheckboxValue(ComplexNullValue):
 
 class CountryValue(ComplexNullValue):
     """A country column value."""
-    
+
     native_type = Country
     allow_casts = (dict)
 
@@ -62,11 +62,14 @@ class HourValue(ComplexNullValue):
     allow_casts = (dict)
 
     def _convert(self, value):
-        return Hour(hour=value['hour'],minute=value['minute'])
+        try:
+            return Hour(hour=value['hour'],minute=value['minute'])
+        except KeyError:
+            return None
 
     def _cast(self, value):
         try:
-            return Hour(hour=value['hour'],minute=value['minute'])               
+            return Hour(hour=value['hour'],minute=value['minute'])
         except KeyError:
             raise ColumnValueError(
                 'invalid_hour_data',
@@ -113,13 +116,13 @@ class RatingValue(ComplexNullValue):
 
     def _convert(self, value):
         return value['rating']
-    
+
     def _format(self):
         return { 'rating': self.value }
-        
+
 class TagsValue(ComplexNullValue):
     """A tags column value."""
-    
+
     native_type = list
     native_default = []
 
@@ -139,15 +142,19 @@ class TagsValue(ComplexNullValue):
 
 class TimelineValue(ComplexNullValue):
     """A timeline column value."""
-    
+
     native_type = Timeline
     allow_casts = (dict)
 
     def _convert(self,value):
         try:
-            from_date = datetime.strptime(value['from'], DATE_FORMAT)
-            to_date = datetime.strptime(value['to'], DATE_FORMAT)
-        except KeyError:
+            print(value)
+            if 'from' in value and 'to' in value:
+                if value['from'] is None or value['to'] is None:
+                    return None
+                from_date = datetime.strptime(value['from'], DATE_FORMAT)
+                to_date = datetime.strptime(value['to'], DATE_FORMAT)
+        except (KeyError, ValueError):
             return None
         try:
             if value['visualization_type'] == 'milestone':
@@ -157,7 +164,7 @@ class TimelineValue(ComplexNullValue):
                 return Timeline(from_date=from_date,to_date=to_date)
         except KeyError:
             return Timeline(from_date=from_date,to_date=to_date)
-    
+
     def _cast(self, value):
         try:
             from_date = value['from']
@@ -175,7 +182,7 @@ class TimelineValue(ComplexNullValue):
                 'invalid_timeline_data',
                 self.id,
                 'Unable to convert "{}" to Timeline value.'.format(value)
-            ) 
+            )
 
     def _format(self):
         try:
@@ -201,26 +208,27 @@ class TimezoneValue(ComplexNullValue):
 
     def _convert(self, value):
         return value['timezone']
-    
+
     def _format(self):
         return {'timezone': self.value}
 
 
 class WeekValue(ComplexNullValue):
     """A week column value."""
-    
+
     native_type = Week
     allow_casts = (dict)
-    
-    
+
+
     def _convert(self, value):
+        print(value)
         try:
             start_date = datetime.strptime(value['week']['startDate'], DATE_FORMAT)
             end_date = datetime.strptime(value['week']['endDate'], DATE_FORMAT)
             return Week(start=start_date, end=end_date)
-        except (KeyError,ValueError, TypeError):
+        except (KeyError, ValueError, TypeError):
             return self.native_default
-        
+
     def _cast(self, value):
         try:
             start = value['start']
@@ -228,7 +236,7 @@ class WeekValue(ComplexNullValue):
             return Week(start=start,end=end)
         except (AttributeError,KeyError):
             raise ColumnValueError('invalid_week_data', self.id, 'Unable to convert "{}" to Week value.'.format(value))
-        
+
     def _format(self):
         try:
             start_date = self.value.start.date()
@@ -236,7 +244,7 @@ class WeekValue(ComplexNullValue):
             start_date = datetime.strftime(start_date, DATE_FORMAT)
             end_date = datetime.strftime(end_date, DATE_FORMAT)
             return {'week': {'startDate': start_date, 'endDate': end_date}}
-        except (TypeError,AttributeError):
+        except (TypeError, AttributeError):
             return COMPLEX_NULL_VALUE
 
 class DependencyValue(ComplexNullValue):
@@ -249,9 +257,9 @@ class DependencyValue(ComplexNullValue):
         try:
             list_ids = value['linkedPulseIds']
             return [int(value['linkedPulseId']) for value in list_ids ]
-        except IndexError:
+        except (IndexError, KeyError):
             return []
-    
+
     def _format(self):
         return_list = []
         for id in self.value:
